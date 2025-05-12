@@ -2,18 +2,58 @@
 
 pub use pallet::*;
 
+/// TODO
+// - add crypto module
+// - add offchain hook
+// - add signing function
+
+use sp_core::crypto::KeyTypeId;
+
+pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"sign");
+
+pub mod crypto {
+    use super::KEY_TYPE;
+    use sp_core::ed25519::Signature as Ed25519Signature;
+    use sp_runtime::{
+        app_crypto::{app_crypto, ed25519},
+        traits::Verify,
+        MultiSignature, MultiSigner,
+    };
+    app_crypto!(ed25519, KEY_TYPE);
+
+    pub struct TemplateAuthId;
+
+    impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for TemplateAuthId {
+        type RuntimeAppPublic = Public;
+        type GenericSignature = sp_core::ed25519::Signature;
+        type GenericPublic = sp_core::ed25519::Public;
+    }
+
+    impl frame_system::offchain::AppCrypto<<Ed25519Signature as Verify>::Signer, Ed25519Signature>
+        for TemplateAuthId
+    {
+        type RuntimeAppPublic = Public;
+        type GenericSignature = sp_core::ed25519::Signature;
+        type GenericPublic = sp_core::ed25519::Public;
+    }
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	use frame_system::{
+        offchain::{AppCrypto, CreateSignedTransaction},
+        pallet_prelude::*,
+    };
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 	}
 
 	#[pallet::storage]
