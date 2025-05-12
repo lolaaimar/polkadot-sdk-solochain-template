@@ -160,10 +160,9 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
-/// Configure the pallet-template in pallets/template.
-impl pallet_template::Config for Runtime {
+impl pallet_sign::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AuthorityId = pallet_template::crypto::TemplateAuthId;
+	type AuthorityId = pallet_sign::crypto::SignAuthId;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime

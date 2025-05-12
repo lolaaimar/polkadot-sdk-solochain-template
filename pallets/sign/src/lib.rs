@@ -2,11 +2,6 @@
 
 pub use pallet::*;
 
-/// TODO
-// - add crypto module
-// - add offchain hook
-// - add signing function
-
 use sp_core::crypto::KeyTypeId;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"sign");
@@ -21,16 +16,16 @@ pub mod crypto {
     };
     app_crypto!(ed25519, KEY_TYPE);
 
-    pub struct TemplateAuthId;
+    pub struct SignAuthId;
 
-    impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for TemplateAuthId {
+    impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for SignAuthId {
         type RuntimeAppPublic = Public;
         type GenericSignature = sp_core::ed25519::Signature;
         type GenericPublic = sp_core::ed25519::Public;
     }
 
     impl frame_system::offchain::AppCrypto<<Ed25519Signature as Verify>::Signer, Ed25519Signature>
-        for TemplateAuthId
+        for SignAuthId
     {
         type RuntimeAppPublic = Public;
         type GenericSignature = sp_core::ed25519::Signature;
@@ -43,9 +38,11 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::{
-        offchain::{AppCrypto, CreateSignedTransaction},
+        offchain::{AppCrypto, CreateSignedTransaction, Signer, SignMessage},
         pallet_prelude::*,
     };
+	use hex::ToHex;
+	use scale_info::prelude::{vec, boxed::Box};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -101,6 +98,34 @@ pub mod pallet {
 					Ok(())
 				},
 			}
+		}
+	}	
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		// Offchain worker has access to the Account inserted for the "sign" key,
+		// and thus, the private key associated which will be used to sign. 
+		fn offchain_worker(_n: BlockNumberFor<T>) {
+			log::info!("Starting offchain worker to sign a message");
+            let mut acc_list = Signer::<T, T::AuthorityId>::keystore_accounts();
+            match acc_list.next() {
+                Some(signer_account) if acc_list.next().is_none() => {
+                    let signer = Signer::<T, T::AuthorityId>::all_accounts()
+                        .with_filter(vec![signer_account.clone().public]);
+                    if signer.can_sign() {
+						if let Some(signed_message) = signer.sign_message(b"some_message").pop() {
+							let account_hex: Box<str> = signed_message.0.id.encode().encode_hex();
+							log::info!("Account signed: {:?}", account_hex);
+							let signature_hex: Box<str> = signed_message.1.encode().encode_hex();
+							log::info!("Signed message: {}", signature_hex);
+						} else {
+							log::error!("Couldn't sign");
+						}
+                    }
+                }
+                Some(_accounts) => log::error!("More than one account. Expected only one"),
+                None => log::error!("No account available"),
+            }
 		}
 	}
 }

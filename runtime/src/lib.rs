@@ -204,5 +204,5 @@ mod runtime {
 	pub type Sudo = pallet_sudo;
 
 	#[runtime::pallet_index(7)]
-	pub type Template = pallet_template;
+	pub type Sign = pallet_sign;
 }
